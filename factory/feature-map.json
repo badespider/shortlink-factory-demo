@@ -51,12 +51,15 @@
         "`POST /links` with `{\"url\":\"HTTP://example.com\"}` answers 201 and its `url` field is `HTTP://example.com` unchanged",
         "After a rejected `POST /links` with `{\"url\":\"ftp://x\"}`, the next valid `POST /links` on the same router answers 201 with code `1` (nothing was stored)"
       ],
-      "status": "todo",
-      "pr": null,
+      "status": "done",
+      "pr": "https://github.com/badespider/shortlink-factory-demo/pull/5",
       "context": {
         "business": "G-5, FL-5: a client that sends a bad request learns why, and the store never fills with unusable links.",
         "design": "One `ApiError` type in `src/error.rs` implementing `IntoResponse`, with JSON `{\"error\"}` bodies and the short lowercase messages of D-errors; parsing per D-json-input (any parse failure is `invalid JSON body`, a non-object or non-string `url` is `missing or non-string \"url\"`); the URL rule of D-url-check (case-insensitive scheme, at least one character after `//`, no whitespace or control characters, stored as given). Tests assert status and a non-empty `error`, never the wording. The last criterion relies on D-codes: a rejected request must not advance the counter.",
-        "code_refs": []
+        "code_refs": [
+          "src/error.rs",
+          "src/handlers.rs"
+        ]
       },
       "files": [
         "src/error.rs",

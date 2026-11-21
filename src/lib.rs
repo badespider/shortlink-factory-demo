@@ -5,6 +5,7 @@ use std::sync::Arc;
 use axum::routing::post;
 use axum::Router;
 
+pub mod error;
 pub mod handlers;
 pub mod store;
 
