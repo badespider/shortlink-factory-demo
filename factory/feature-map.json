@@ -148,12 +148,16 @@
         "`DELETE /links/1` a second time answers 404, and `DELETE /links/zzz` on a fresh `shortlink::app()` answers 404",
         "After creating link `1` and deleting it, the next `POST /links` with a valid URL answers code `2` (codes are never reused)"
       ],
-      "status": "in_progress",
+      "status": "done",
       "pr": "https://github.com/badespider/shortlink-factory-demo/pull/8",
       "context": {
         "business": "G-4, FL-4: a client can take a link down, and visitors then no longer reach the stored URL.",
         "design": "Route `DELETE /links/{code}` per D-routes, 404 with an empty body for unknown codes; the store removes the entry and never rewinds the counter, per D-store and D-codes. Builds on the `GET /{code}` route (F3) and the `GET /links` route (F4) to observe the removal.",
-        "code_refs": []
+        "code_refs": [
+          "src/store.rs",
+          "src/handlers.rs",
+          "src/lib.rs"
+        ]
       },
       "files": [
         "src/handlers.rs",
