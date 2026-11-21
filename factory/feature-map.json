@@ -79,7 +79,7 @@
         "`GET /zzz` on a fresh `shortlink::app()` answers 404 with an empty body",
         "`GET /a/b` on a router holding link `1` answers 404 (only single-segment paths are codes)"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "pr": null,
       "context": {
         "business": "G-2, FL-2: following the short code is the reason a link exists.",
