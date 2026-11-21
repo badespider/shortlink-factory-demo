@@ -12,7 +12,7 @@
         "`POST /links` with body `{\"url\":\"https://example.com/a\",\"extra\":true}` and no `Content-Type` header answers 201 and the JSON body has exactly the keys `code`, `url` and `hits`",
         "`shortlink::store::base62(n)` returns `1`, `a`, `z`, `A`, `Z` and `10` for `n` = 1, 10, 35, 36, 61 and 62"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "pr": null,
       "context": {
         "business": "G-1, FL-1: shortening a URL is the first step of every flow; nothing can be redirected, listed or deleted without it.",
