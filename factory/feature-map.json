@@ -1,4 +1,174 @@
 {
   "version": 1,
-  "features": []
+  "features": [
+    {
+      "id": "F1",
+      "title": "Shorten a URL",
+      "description": "A client creates a short link with `POST /links {\"url\": \"<http(s) url>\"}` and gets back its code. This feature lays down the crate skeleton every later feature uses: `pub fn app() -> axum::Router` in `src/lib.rs`, the in-memory `Store` with sequential base62 codes in `src/store.rs` (exposed as `pub mod store`), the create handler in `src/handlers.rs`, and test helpers in `tests/common/mod.rs`.",
+      "depends_on": [],
+      "acceptance_criteria": [
+        "Sending `POST /links` with body `{\"url\":\"https://example.com/a\"}` to a fresh `shortlink::app()` (via `tower::ServiceExt::oneshot`) answers 201 with `Content-Type: application/json` and the JSON body `{\"code\":\"1\",\"url\":\"https://example.com/a\",\"hits\":0}`",
+        "Three `POST /links` requests with valid URLs on the same `shortlink::app()` router answer the codes `1`, `2` and `3` in that order",
+        "`POST /links` with body `{\"url\":\"https://example.com/a\",\"extra\":true}` and no `Content-Type` header answers 201 and the JSON body has exactly the keys `code`, `url` and `hits`",
+        "`shortlink::store::base62(n)` returns `1`, `a`, `z`, `A`, `Z` and `10` for `n` = 1, 10, 35, 36, 61 and 62"
+      ],
+      "status": "todo",
+      "pr": null,
+      "context": {
+        "business": "G-1, FL-1: shortening a URL is the first step of every flow; nothing can be redirected, listed or deleted without it.",
+        "design": "Crate layout per D-rust-axum and D-modules; `app()` builds fresh state on each call per D-router-fn; `Store` is shared as `Arc<Store>` with a `Mutex<Vec<Link>>` and a counter per D-store; codes are `base62` of a never-reused counter starting at 1 that skips the literal `links`, per D-codes; the body is parsed from raw `Bytes` with `serde_json::from_slice`, ignoring `Content-Type`, per D-json-input; route `POST /links` per D-routes; tests are integration tests in `tests/` (for example `tests/create.rs`) per D-tests. Full 400 handling is F2: here a body without a usable string `url` may answer any 4xx.",
+        "code_refs": []
+      },
+      "provides": {
+        "F2": "the POST /links handler in src/handlers.rs and Store::create in src/store.rs; F2 adds validation and ApiError in front of it",
+        "F3": "shortlink::app(), Arc<Store> state and the Link {code, url, hits} type in src/store.rs; F3 adds a lookup-and-count method and the GET /{code} route",
+        "F4": "shortlink::app(), Arc<Store> state and Link (Serialize, the exact list item shape); F4 adds a newest-first list method and the GET /links route",
+        "F5": "shortlink::app() and Arc<Store> state; F5 adds a remove method and the DELETE /links/{code} route",
+        "F6": "the library crate src/lib.rs with shortlink::app(), which src/main.rs serves"
+      },
+      "files": [
+        "src/lib.rs",
+        "src/store.rs",
+        "src/handlers.rs"
+      ]
+    },
+    {
+      "id": "F2",
+      "title": "Reject bad input with 400",
+      "description": "`POST /links` answers 400 with `{\"error\": \"<message>\"}` for a body that is not JSON, JSON without a string `url`, or a URL that is not http(s), and stores nothing.",
+      "depends_on": [
+        "F1"
+      ],
+      "acceptance_criteria": [
+        "`POST /links` with the body `not json` answers 400 with `Content-Type: application/json` and a JSON body whose `error` field is a non-empty string",
+        "`POST /links` with the body `{}`, and separately with `{\"url\": 5}`, answers 400 with a JSON body whose `error` field is a non-empty string",
+        "`POST /links` with `{\"url\":\"ftp://x\"}`, with `{\"url\":\"https://\"}` and with `{\"url\":\"https://a b\"}` each answers 400 with a non-empty string `error`",
+        "`POST /links` with `{\"url\":\"HTTP://example.com\"}` answers 201 and its `url` field is `HTTP://example.com` unchanged",
+        "After a rejected `POST /links` with `{\"url\":\"ftp://x\"}`, the next valid `POST /links` on the same router answers 201 with code `1` (nothing was stored)"
+      ],
+      "status": "todo",
+      "pr": null,
+      "context": {
+        "business": "G-5, FL-5: a client that sends a bad request learns why, and the store never fills with unusable links.",
+        "design": "One `ApiError` type in `src/error.rs` implementing `IntoResponse`, with JSON `{\"error\"}` bodies and the short lowercase messages of D-errors; parsing per D-json-input (any parse failure is `invalid JSON body`, a non-object or non-string `url` is `missing or non-string \"url\"`); the URL rule of D-url-check (case-insensitive scheme, at least one character after `//`, no whitespace or control characters, stored as given). Tests assert status and a non-empty `error`, never the wording. The last criterion relies on D-codes: a rejected request must not advance the counter.",
+        "code_refs": []
+      },
+      "files": [
+        "src/error.rs",
+        "src/handlers.rs",
+        "src/lib.rs"
+      ]
+    },
+    {
+      "id": "F3",
+      "title": "Follow a short code",
+      "description": "A visitor opening `GET /<code>` is redirected with 302 to the stored URL and the link's hit counter goes up by one; an unknown code is 404.",
+      "depends_on": [
+        "F1"
+      ],
+      "acceptance_criteria": [
+        "After `POST /links` with `{\"url\":\"https://example.com/a\"}` returns code `1`, `GET /1` on the same router answers 302 with header `Location: https://example.com/a`",
+        "`GET /zzz` on a fresh `shortlink::app()` answers 404 with an empty body",
+        "`GET /a/b` on a router holding link `1` answers 404 (only single-segment paths are codes)"
+      ],
+      "status": "todo",
+      "pr": null,
+      "context": {
+        "business": "G-2, FL-2: following the short code is the reason a link exists.",
+        "design": "Route `GET /{code}` per D-routes, 404 with an empty body; status 302 with a `Location` header and an empty body built by hand, not `Redirect::to`, per D-redirect; the hit increment happens under the store lock per D-store. That the count shows in `GET /links` is checked by F4.",
+        "code_refs": []
+      },
+      "provides": {
+        "F4": "the GET /{code} route that increments hits, so the list can show a counted visit",
+        "F5": "the GET /{code} route, so a deleted code can be shown to answer 404"
+      },
+      "files": [
+        "src/handlers.rs",
+        "src/store.rs",
+        "src/lib.rs"
+      ]
+    },
+    {
+      "id": "F4",
+      "title": "List links with hit counts",
+      "description": "`GET /links` answers 200 with every link as `{\"code\", \"url\", \"hits\"}`, newest first, and `[]` when there are none.",
+      "depends_on": [
+        "F1",
+        "F3"
+      ],
+      "acceptance_criteria": [
+        "`GET /links` on a fresh `shortlink::app()` answers 200 with `Content-Type: application/json` and the body `[]`",
+        "After creating `https://example.com/a` then `https://example.com/b`, `GET /links` answers 200 with `[{\"code\":\"2\",\"url\":\"https://example.com/b\",\"hits\":0},{\"code\":\"1\",\"url\":\"https://example.com/a\",\"hits\":0}]`",
+        "After creating link `1` and sending `GET /1` twice, `GET /links` shows that link with `\"hits\":2`"
+      ],
+      "status": "todo",
+      "pr": null,
+      "context": {
+        "business": "G-3, FL-3: a client sees what it has shortened and how often each link was followed.",
+        "design": "Route `GET /links` per D-routes; the store returns its vector reversed (newest first) and `Link` serializes as the exact shape, per D-store. The last criterion uses the redirect route from F3 to count hits.",
+        "code_refs": []
+      },
+      "provides": {
+        "F5": "the GET /links route, so a deleted link can be shown to leave the list"
+      },
+      "files": [
+        "src/handlers.rs",
+        "src/store.rs",
+        "src/lib.rs"
+      ]
+    },
+    {
+      "id": "F5",
+      "title": "Delete a link",
+      "description": "`DELETE /links/<code>` answers 204 and removes the link, so its redirect is 404 and it leaves the list; an unknown or already deleted code is 404.",
+      "depends_on": [
+        "F1",
+        "F3",
+        "F4"
+      ],
+      "acceptance_criteria": [
+        "After creating link `1`, `DELETE /links/1` answers 204 with an empty body",
+        "After `DELETE /links/1` answered 204, `GET /1` answers 404 and `GET /links` answers 200 with `[]`",
+        "`DELETE /links/1` a second time answers 404, and `DELETE /links/zzz` on a fresh `shortlink::app()` answers 404",
+        "After creating link `1` and deleting it, the next `POST /links` with a valid URL answers code `2` (codes are never reused)"
+      ],
+      "status": "todo",
+      "pr": null,
+      "context": {
+        "business": "G-4, FL-4: a client can take a link down, and visitors then no longer reach the stored URL.",
+        "design": "Route `DELETE /links/{code}` per D-routes, 404 with an empty body for unknown codes; the store removes the entry and never rewinds the counter, per D-store and D-codes. Builds on the `GET /{code}` route (F3) and the `GET /links` route (F4) to observe the removal.",
+        "code_refs": []
+      },
+      "files": [
+        "src/handlers.rs",
+        "src/store.rs",
+        "src/lib.rs"
+      ]
+    },
+    {
+      "id": "F6",
+      "title": "Run the server on a chosen address",
+      "description": "The `shortlink` binary listens on `SHORTLINK_ADDR`, or `127.0.0.1:3000` when it is unset or empty; a bad address prints one line to stderr and exits 1.",
+      "depends_on": [
+        "F1"
+      ],
+      "acceptance_criteria": [
+        "`shortlink::listen_addr(None)` and `shortlink::listen_addr(Some(\"\"))` both return `Ok` with the socket address `127.0.0.1:3000`",
+        "`shortlink::listen_addr(Some(\"0.0.0.0:8080\"))` returns `Ok` with the socket address `0.0.0.0:8080`",
+        "`shortlink::listen_addr(Some(\"not an addr\"))` returns `Err` with a non-empty message",
+        "Running the built binary (`env!(\"CARGO_BIN_EXE_shortlink\")` from an integration test) with `SHORTLINK_ADDR=not-an-addr` exits with status 1 and prints exactly one non-empty line on stderr"
+      ],
+      "status": "todo",
+      "pr": null,
+      "context": {
+        "business": "G-6, FL-6: an operator starts the service where they need it.",
+        "design": "`pub fn listen_addr(var: Option<&str>) -> Result<SocketAddr, String>` in `src/lib.rs` per D-addr; `src/main.rs` holds only startup per D-router-fn and D-modules: read `SHORTLINK_ADDR`, call `listen_addr`, bind a `tokio::net::TcpListener`, run `axum::serve(listener, shortlink::app())`, and on an address or bind error print one line to stderr and exit 1. Tests call `listen_addr` directly; the last criterion runs the binary only on an address that fails to parse, so no socket is opened, per D-tests.",
+        "code_refs": []
+      },
+      "files": [
+        "src/main.rs",
+        "src/lib.rs"
+      ]
+    }
+  ]
 }
