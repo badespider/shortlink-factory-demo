@@ -40,6 +40,16 @@ pub async fn follow_link(State(store): State<Arc<Store>>, Path(code): Path<Strin
     }
 }
 
+/// `DELETE /links/{code}`: 204 with an empty body once the link is removed;
+/// an unknown or already deleted code is 404 with an empty body (D-routes).
+pub async fn delete_link(State(store): State<Arc<Store>>, Path(code): Path<String>) -> Response {
+    if store.remove(&code) {
+        StatusCode::NO_CONTENT.into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
+}
+
 /// The valid `url` of a `POST /links` body, or why the body is rejected.
 fn parse_url(body: &[u8]) -> Result<String, ApiError> {
     let value: Value = serde_json::from_slice(body).map_err(|_| ApiError::InvalidJson)?;
