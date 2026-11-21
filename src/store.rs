@@ -63,6 +63,19 @@ impl Store {
         Some(link.url.clone())
     }
 
+    /// Removes the link with `code`; `false` when no link has that code. The
+    /// counter is left alone, so a deleted code is never handed out again (D-codes).
+    pub fn remove(&self, code: &str) -> bool {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        match inner.links.iter().position(|l| l.code == code) {
+            Some(i) => {
+                inner.links.remove(i);
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Every link, newest first (the creation-order vector reversed).
     pub fn list(&self) -> Vec<Link> {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
