@@ -53,6 +53,15 @@ impl Store {
         inner.links.push(link.clone());
         link
     }
+
+    /// Finds the link with `code`, counts one hit and returns its URL, all under
+    /// one lock; `None` when no link has that code.
+    pub fn follow(&self, code: &str) -> Option<String> {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let link = inner.links.iter_mut().find(|l| l.code == code)?;
+        link.hits += 1;
+        Some(link.url.clone())
+    }
 }
 
 const DIGITS: &[u8; 62] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";

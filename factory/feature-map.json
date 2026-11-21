@@ -79,12 +79,16 @@
         "`GET /zzz` on a fresh `shortlink::app()` answers 404 with an empty body",
         "`GET /a/b` on a router holding link `1` answers 404 (only single-segment paths are codes)"
       ],
-      "status": "todo",
-      "pr": null,
+      "status": "done",
+      "pr": "https://github.com/badespider/shortlink-factory-demo/pull/6",
       "context": {
         "business": "G-2, FL-2: following the short code is the reason a link exists.",
         "design": "Route `GET /{code}` per D-routes, 404 with an empty body; status 302 with a `Location` header and an empty body built by hand, not `Redirect::to`, per D-redirect; the hit increment happens under the store lock per D-store. That the count shows in `GET /links` is checked by F4.",
-        "code_refs": []
+        "code_refs": [
+          "src/store.rs",
+          "src/handlers.rs",
+          "src/lib.rs"
+        ]
       },
       "provides": {
         "F4": "the GET /{code} route that increments hits, so the list can show a counted visit",
