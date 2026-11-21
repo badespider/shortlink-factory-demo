@@ -62,6 +62,12 @@ impl Store {
         link.hits += 1;
         Some(link.url.clone())
     }
+
+    /// Every link, newest first (the creation-order vector reversed).
+    pub fn list(&self) -> Vec<Link> {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.links.iter().rev().cloned().collect()
+    }
 }
 
 const DIGITS: &[u8; 62] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
