@@ -113,7 +113,7 @@
         "After creating `https://example.com/a` then `https://example.com/b`, `GET /links` answers 200 with `[{\"code\":\"2\",\"url\":\"https://example.com/b\",\"hits\":0},{\"code\":\"1\",\"url\":\"https://example.com/a\",\"hits\":0}]`",
         "After creating link `1` and sending `GET /1` twice, `GET /links` shows that link with `\"hits\":2`"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "pr": null,
       "context": {
         "business": "G-3, FL-3: a client sees what it has shortened and how often each link was followed.",
