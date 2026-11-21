@@ -12,12 +12,17 @@
         "`POST /links` with body `{\"url\":\"https://example.com/a\",\"extra\":true}` and no `Content-Type` header answers 201 and the JSON body has exactly the keys `code`, `url` and `hits`",
         "`shortlink::store::base62(n)` returns `1`, `a`, `z`, `A`, `Z` and `10` for `n` = 1, 10, 35, 36, 61 and 62"
       ],
-      "status": "todo",
-      "pr": null,
+      "status": "done",
+      "pr": "https://github.com/badespider/shortlink-factory-demo/pull/4",
       "context": {
         "business": "G-1, FL-1: shortening a URL is the first step of every flow; nothing can be redirected, listed or deleted without it.",
         "design": "Crate layout per D-rust-axum and D-modules; `app()` builds fresh state on each call per D-router-fn; `Store` is shared as `Arc<Store>` with a `Mutex<Vec<Link>>` and a counter per D-store; codes are `base62` of a never-reused counter starting at 1 that skips the literal `links`, per D-codes; the body is parsed from raw `Bytes` with `serde_json::from_slice`, ignoring `Content-Type`, per D-json-input; route `POST /links` per D-routes; tests are integration tests in `tests/` (for example `tests/create.rs`) per D-tests. Full 400 handling is F2: here a body without a usable string `url` may answer any 4xx.",
-        "code_refs": []
+        "code_refs": [
+          "src/lib.rs",
+          "src/store.rs",
+          "src/handlers.rs",
+          "tests/common/mod.rs"
+        ]
       },
       "provides": {
         "F2": "the POST /links handler in src/handlers.rs and Store::create in src/store.rs; F2 adds validation and ApiError in front of it",
