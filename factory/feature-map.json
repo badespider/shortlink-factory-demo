@@ -148,7 +148,7 @@
         "`DELETE /links/1` a second time answers 404, and `DELETE /links/zzz` on a fresh `shortlink::app()` answers 404",
         "After creating link `1` and deleting it, the next `POST /links` with a valid URL answers code `2` (codes are never reused)"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "pr": null,
       "context": {
         "business": "G-4, FL-4: a client can take a link down, and visitors then no longer reach the stored URL.",
