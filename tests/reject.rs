@@ -80,7 +80,11 @@ async fn f2_ac5_rejected_post_stores_nothing() {
     let bad = common::create(&app, r#"{"url":"ftp://x"}"#).await;
     assert_rejected("F2-ac5", r#"{"url":"ftp://x"}"#, &bad);
     let good = common::create(&app, r#"{"url":"https://example.com/a"}"#).await;
-    assert_eq!(good.status, StatusCode::CREATED, "F2-ac5: status of valid post");
+    assert_eq!(
+        good.status,
+        StatusCode::CREATED,
+        "F2-ac5: status of valid post"
+    );
     assert_eq!(
         good.json()["code"].as_str(),
         Some("1"),
