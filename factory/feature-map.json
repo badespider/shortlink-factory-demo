@@ -80,7 +80,7 @@
         "`GET /a/b` on a router holding link `1` answers 404 (only single-segment paths are codes)"
       ],
       "status": "in_progress",
-      "pr": null,
+      "pr": "https://github.com/badespider/shortlink-factory-demo/pull/6",
       "context": {
         "business": "G-2, FL-2: following the short code is the reason a link exists.",
         "design": "Route `GET /{code}` per D-routes, 404 with an empty body; status 302 with a `Location` header and an empty body built by hand, not `Redirect::to`, per D-redirect; the hit increment happens under the store lock per D-store. That the count shows in `GET /links` is checked by F4.",
