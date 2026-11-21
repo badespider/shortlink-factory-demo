@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::Router;
 
 pub mod error;
@@ -17,6 +17,7 @@ pub fn app() -> Router {
             "/links",
             post(handlers::create_link).get(handlers::list_links),
         )
+        .route("/links/{code}", delete(handlers::delete_link))
         .route("/{code}", get(handlers::follow_link))
         .with_state(store)
 }
