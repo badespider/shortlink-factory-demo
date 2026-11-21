@@ -51,7 +51,7 @@
         "`POST /links` with `{\"url\":\"HTTP://example.com\"}` answers 201 and its `url` field is `HTTP://example.com` unchanged",
         "After a rejected `POST /links` with `{\"url\":\"ftp://x\"}`, the next valid `POST /links` on the same router answers 201 with code `1` (nothing was stored)"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "pr": null,
       "context": {
         "business": "G-5, FL-5: a client that sends a bad request learns why, and the store never fills with unusable links.",
