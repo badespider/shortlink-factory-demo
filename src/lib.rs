@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use axum::routing::post;
+use axum::routing::{get, post};
 use axum::Router;
 
 pub mod error;
@@ -14,5 +14,6 @@ pub fn app() -> Router {
     let store = Arc::new(store::Store::default());
     Router::new()
         .route("/links", post(handlers::create_link))
+        .route("/{code}", get(handlers::follow_link))
         .with_state(store)
 }

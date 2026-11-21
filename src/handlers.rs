@@ -3,8 +3,8 @@
 use std::sync::Arc;
 
 use axum::body::Bytes;
-use axum::extract::State;
-use axum::http::StatusCode;
+use axum::extract::{Path, State};
+use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::Value;
@@ -20,6 +20,17 @@ pub async fn create_link(State(store): State<Arc<Store>>, body: Bytes) -> Respon
     match parse_url(&body) {
         Ok(url) => (StatusCode::CREATED, Json(store.create(url))).into_response(),
         Err(e) => e.into_response(),
+    }
+}
+
+/// `GET /{code}`: 302 with `Location` set to the stored URL and an empty body,
+/// built by hand because `Redirect::to` answers 303 (D-redirect). The hit is
+/// counted inside the store lock (D-store). An unknown code is 404 with an
+/// empty body (D-routes).
+pub async fn follow_link(State(store): State<Arc<Store>>, Path(code): Path<String>) -> Response {
+    match store.follow(&code) {
+        Some(url) => (StatusCode::FOUND, [(header::LOCATION, url)]).into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
     }
 }
 
