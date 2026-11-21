@@ -23,6 +23,12 @@ pub async fn create_link(State(store): State<Arc<Store>>, body: Bytes) -> Respon
     }
 }
 
+/// `GET /links`: 200 with every link as `{"code","url","hits"}`, newest first,
+/// and `[]` when there are none (D-store, D-routes).
+pub async fn list_links(State(store): State<Arc<Store>>) -> Response {
+    Json(store.list()).into_response()
+}
+
 /// `GET /{code}`: 302 with `Location` set to the stored URL and an empty body,
 /// built by hand because `Redirect::to` answers 303 (D-redirect). The hit is
 /// counted inside the store lock (D-store). An unknown code is 404 with an

@@ -113,12 +113,16 @@
         "After creating `https://example.com/a` then `https://example.com/b`, `GET /links` answers 200 with `[{\"code\":\"2\",\"url\":\"https://example.com/b\",\"hits\":0},{\"code\":\"1\",\"url\":\"https://example.com/a\",\"hits\":0}]`",
         "After creating link `1` and sending `GET /1` twice, `GET /links` shows that link with `\"hits\":2`"
       ],
-      "status": "todo",
-      "pr": null,
+      "status": "done",
+      "pr": "https://github.com/badespider/shortlink-factory-demo/pull/7",
       "context": {
         "business": "G-3, FL-3: a client sees what it has shortened and how often each link was followed.",
         "design": "Route `GET /links` per D-routes; the store returns its vector reversed (newest first) and `Link` serializes as the exact shape, per D-store. The last criterion uses the redirect route from F3 to count hits.",
-        "code_refs": []
+        "code_refs": [
+          "src/store.rs",
+          "src/handlers.rs",
+          "src/lib.rs"
+        ]
       },
       "provides": {
         "F5": "the GET /links route, so a deleted link can be shown to leave the list"
