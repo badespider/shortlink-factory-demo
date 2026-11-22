@@ -9,7 +9,8 @@
      while the bug exists and exits 0 once it is fixed. scripts/verify-fix.sh runs this
      block from the issue's ORIGINAL text, so edits made after filing are ignored.
      It runs with a clean environment: no tokens, a fresh HOME and TMPDIR and an empty
-     CARGO_HOME (installed toolchains stay reachable; cargo downloads, so no --offline). -->
+     CARGO_HOME (installed toolchains stay reachable; cargo downloads, so no --offline).
+     It must not need a private clone or any other login. -->
 
 ```sh
 command that fails while the bug exists

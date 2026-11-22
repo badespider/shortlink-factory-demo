@@ -84,7 +84,7 @@ MAX=$(cd "$MAIN" && bash scripts/config.sh get roles.bug-fix.hunt_max_issues 1);
 3. **Review each one** with [verify](../verify/SKILL.md) in its hunt form: the tree is `$W`, the change is `git show <sha>`, findings go to `$T/P<P>.jsonl`, and confirmation runs without `--pr`: `(cd "$MAIN" && bash scripts/confirm-findings.sh "$T/P<P>.jsonl" --tree "$W"); echo "exit=$?"`. Only the JSONL lines it prints (exit 1) are bugs. Then leave a note, its marker alone on the first line, so later hunts skip that PR: `printf '<!-- factory:hunt sha=%s -->\nHunted at %s: %s confirmed finding(s).\n' "$TIP" "$TIP" <k> | gh pr comment <P> --body-file -`.
 4. **File at most `$MAX` issues** in this run, one per confirmed finding:
    - Write `$T/issue-P<P>-V1.md` from `templates/issue-role-bug-fix.md`: Summary (the claim, and "found while reviewing #P"), Repro (the finding's command in a `sh` block), `expect:` (the finding's expect), Severity `unrated`, Escape of `none`, or `#M` when it repeats a recently closed fix (then also pass `--label escape`).
-   - Check that the bug-fix run will see it fail, run the same way: fresh worktrees at the tip, only `PATH`, a fresh `HOME` and `TMPDIR`.
+   - Check that the bug-fix run will see it fail, run the same way: fresh worktrees at the tip, in the clean environment `bash scripts/verify-fix.sh --help` lists (no tokens, a fresh `HOME` and `TMPDIR`).
      ```sh
      (cd "$MAIN" && bash scripts/verify-fix.sh --base-only --repro-file "$T/issue-P<P>-V1.md" --base "$TIP" --tree "$W"); echo "exit=$?"
      ```

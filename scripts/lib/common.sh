@@ -233,6 +233,12 @@ sf_credential_names() {
     env | awk '
       match($0, /^[^=]+=/) {
         n = substr($0, 1, RLENGTH - 1); u = toupper(n)
+        # GCM_CREDENTIAL_STORE=none names no store and holds no secret: verify-fix gives
+        # repros it so Git Credential Manager finds no stored login, and a scrubbed child
+        # must keep it. Any other value is scrubbed, like every CREDENTIAL name. ENVIRON
+        # holds the whole value: a line of env output would also pass "none" followed by a
+        # newline and more, or by a CR (Git for Windows awk reads in text mode).
+        if (n == "GCM_CREDENTIAL_STORE" && ENVIRON[n] == "none") next
         if (u ~ /TOKEN|SECRET|PASSW|CREDENTIAL|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY/ ||
             u ~ /(^|_)PAT(_|$)/ || n == "FACTORY_AGENT_ENV" || n == "SSH_AUTH_SOCK") print n
       }' | sort -u
