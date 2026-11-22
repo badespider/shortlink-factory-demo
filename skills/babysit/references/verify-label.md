@@ -55,7 +55,7 @@ Leave out the expect file, `--rawfile expect` and the `expect` key when the sect
 
 ## 3. Read every command before running it
 
-A command may only exercise this tree: run its code, its tests, its CLI. Its first line must point the home and config directories at fresh ones, as verify step 4 writes it (`export HOME="$(mktemp -d)" ...`), so the code under review never sees your files or gh login. Never run one without that line, or one that reaches the network, reads credentials or files outside the tree, or calls `git push`, `gh` or `curl`: babysit hands the PR back to the operator; verify counts the list as not rebuildable.
+A command may only exercise this tree: run its code, its tests, its CLI. Its first line must point the home and config directories at fresh ones, as verify step 4 writes it (`export HOME="$(mktemp -d)" ...`), so the code under review never sees your files or gh login. Never run one without that line, or one that reaches the network (beyond a build tool fetching the tree's locked dependencies), reads credentials or files outside the tree, or calls `git push`, `gh` or `curl`: babysit hands the PR back to the operator; verify counts the list as not rebuildable.
 
 ## 4. Reproduce first
 

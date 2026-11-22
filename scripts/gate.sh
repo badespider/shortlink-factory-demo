@@ -52,7 +52,20 @@ A check that cannot decide (feature-map.sh exits 2, red/green returns 2 or 3) pr
 FAIL <step> with the reason and the other steps still run, but the gate then has no
 verdict: it exits 2, --json says "result":"error", and --record-pr posts nothing, so an
 inconclusive run never counts as a fix attempt. A failed setup is a fail (exit 1) even
-then: it is a decisive fail of the tree's own code.
+then: it is a decisive fail of the tree's own code. So is any step that said no when only
+red/green could not decide: red/green runs the branch's own red commit, whose tests can
+make it undecided at will, so it never cancels a fail another step decided.
+
+Before any of the tree's code runs, the machine must have the command each step starts
+with (its first bare word, past VAR=value prefixes; a prefix that sets or extends PATH, or
+holds quotes, a backslash or a $, leaves it unchecked; found by command -v in the steps'
+own environment): project.setup's, and gate.test's, gate.lint's and gate.typecheck's when
+project.setup is none (a setup may install them). A missing one stops the gate with exit 2
+("<step> could not run: its command <name> is not on this machine"), before any step runs,
+so nothing is recorded and no fix attempt is used. After that, setup's, test's, lint's and
+typecheck's exit codes are the tree's, 126 and 127 included. red/green's red run reads a
+126/127, a timeout or launch-error output as inconclusive (redgreen_check), which can make
+the verdict "none" but never cancels a fail another step decided.
 
 Options:
   --tree DIR      tree under test (default: the repo containing the current directory)
@@ -332,6 +345,60 @@ if [ "$SF_MSYS" = 1 ]; then sf_need cygpath; fi
 if [ -n "$OPT_PR" ]; then sf_need gh; fi
 # The bash that runs project commands, by its path: env would look `bash` up in PATH.
 GATE_BASH="$BASH"
+
+# gate_first_command CMD: CMD's first word, past VAR=value prefixes, when it is a bare name
+# (letters, digits, . _ + -); nothing when a prefix sets PATH (the name would be looked up
+# elsewhere) or the word is anything else (a path, quoted, a keyword followed by more).
+# read -a splits without globbing.
+gate_first_command() {
+  local w n
+  local -a ws=()
+  read -r -a ws <<<"$1" || true
+  for w in ${ws[@]+"${ws[@]}"}; do
+    case "$w" in
+      [A-Za-z_]*=*)
+        n=${w%%=*}
+        n=${n%+}
+        # PATH= and PATH+= change where the name is looked up; a name that is no identifier
+        # means this is no assignment.
+        case "$n" in PATH | *[!A-Za-z0-9_]*) return 0 ;; esac
+        # Quotes, a backslash, a backtick or a $ can hold a blank that read -a split on, so
+        # the next word may be no command at all: leave such a command unchecked.
+        case "$w" in *[\\\"\'\`\$]*) return 0 ;; esac
+        continue
+        ;;
+    esac
+    case "$w" in '' | -* | *[!A-Za-z0-9._+-]*) return 0 ;; esac
+    printf '%s\n' "$w"
+    return 0
+  done
+}
+
+# The machine must have the tools the steps start with, checked now, before any of the
+# tree's code runs (red/green, below, is the first), with command -v in the environment the
+# steps get: project.setup's first command, and, when setup is none (a setup may install
+# them), those of gate.test, gate.lint and gate.typecheck. A missing one is a machine that
+# can't judge this config, not a fail of the tree: the gate stops with no verdict (exit 2),
+# before any step, so nothing is recorded and no fix attempt is used. Only the judging
+# config and the machine decide this, so the tree can't make its own failure read that way:
+# after this, setup's, test's, lint's and typecheck's exit codes are the tree's, 126 and 127
+# included (red/green's own inconclusive cases are its rule, and never cancel a decided fail).
+gate_need_tool() { # STEP COMMAND
+  local w
+  if sf_is_none "$2"; then return 0; fi
+  w=$(gate_first_command "$2")
+  [ -n "$w" ] || return 0
+  # shellcheck disable=SC2016 # $1 is expanded by the probing bash
+  if ! env ${GATE_DROP[@]+"${GATE_DROP[@]}"} "$GATE_BASH" -c 'command -v -- "$1"' _ "$w" </dev/null >/dev/null 2>&1; then
+    sf_die "$1 could not run: its command $w is not on this machine (not found by command -v), so the gate has no verdict"
+  fi
+}
+gate_need_tool setup "$CFG_SETUP"
+if sf_is_none "$CFG_SETUP"; then
+  gate_need_tool test "$CFG_TEST"
+  gate_need_tool lint "$CFG_LINT"
+  gate_need_tool typecheck "$CFG_TYPECHECK"
+fi
 # gh runs git by a PATH lookup when it has to find a repository; the post below puts the
 # pinned git's directory first in gh's PATH all the same.
 GATE_GIT_BIN=$(hash -t git 2>/dev/null) || GATE_GIT_BIN=""
@@ -648,10 +715,15 @@ else
 
   # red-green. Only 0 and 1 are verdicts. Inconclusive (3), a bad call or config (2) or
   # anything else means red/green could not decide: the step fails, and the gate has no
-  # verdict (exit 2).
+  # verdict (exit 2), unless a step above has already said no. red/green runs the tree's own
+  # red commit, whose tests can make it undecided at will (a 127, a "command not found"
+  # line), so it must not cancel a fail that stands without it: that fail is recorded and
+  # counts as a fix attempt. A map or tests-tagged check that could not decide still wins.
   if [ -n "$RG_SKIP" ]; then
     gate_skip red-green "$RG_SKIP"
   else
+    gate_decided_no=0
+    if [ "$GATE_FAILED" -eq 1 ] && [ "$GATE_ERROR" -eq 0 ]; then gate_decided_no=1; fi
     case "$RG_RC" in
       0) gate_report red-green PASS "$RG_SECS" ;;
       1) gate_report red-green FAIL "$RG_SECS" "the red/green check said no" "$GATE_W/red-green.log" ;;
@@ -669,6 +741,7 @@ else
         gate_report red-green FAIL "$RG_SECS" "the red/green check could not decide: exit $RG_RC" "$GATE_W/red-green.log"
         ;;
     esac
+    if [ "$gate_decided_no" -eq 1 ]; then GATE_ERROR=0; fi
   fi
 fi
 

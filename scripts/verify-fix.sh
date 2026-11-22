@@ -91,8 +91,8 @@ The repro is the first fenced block (```sh, ```bash, ```shell, bare ``` or ~~~) 
 section under a "### Repro" heading, plus an optional "expect: <substring>" line in that
 section. It runs as a file (bash <file>) twice at base and twice at head, each time in a
 fresh detached worktree after project.setup (run without credential-like variables), with
-a clean environment (env -i: PATH, a fresh HOME and TMPDIR, SYSTEMROOT/WINDIR when set; no
-tokens) and a timeout of limits.repro_timeout_seconds. Every base run is judged before any
+a clean environment (env -i: PATH, a fresh HOME and TMPDIR, SYSTEMROOT/WINDIR when set, the
+installed toolchain roots of sf_toolchain_env such as RUSTUP_HOME, a fresh CARGO_HOME; no tokens) and a timeout of limits.repro_timeout_seconds. Every base run is judged before any
 head code runs.
 
 Verified when both base runs fail (with output containing expect, when given), both
@@ -796,17 +796,29 @@ vf_drop() {
 
 # vf_run TAG NAME K: run entry K's repro once in the NAME worktree; returns its exit status
 # (124 = timed out). The repro is a file, written from memory for every run, and runs
-# under env -i with only PATH (plus SYSTEMROOT/WINDIR when set) and a fresh HOME and
-# TMPDIR, so no token or credential of this process can reach it. Output:
-# $VF_WORK/run-TAG/out. The run directory must be new: nothing may sit in HOME or TMPDIR.
+# under env -i with only PATH (plus SYSTEMROOT/WINDIR when set, and the toolchain roots
+# of sf_toolchain_env) and a fresh HOME and TMPDIR, so no token or credential of this
+# process can reach it. Output: $VF_WORK/run-TAG/out. The run directory must be new: nothing
+# may sit in HOME or TMPDIR.
 vf_run() {
-  local d="$VF_WORK/run-$1" wt="$VF_WORK/wt-$2" st=0
+  local d="$VF_WORK/run-$1" wt="$VF_WORK/wt-$2" st=0 v
   local envv=()
   if ! mkdir "$d" || ! mkdir "$d/home" "$d/tmp"; then sf_die "cannot create a fresh $d"; fi
   printf '%s\n' "${VF_I_REPRO[$3]}" >"$d/repro.sh" || sf_die "cannot write $d/repro.sh"
   envv=("PATH=$PATH" "HOME=$d/home" "TMPDIR=$d/tmp")
   if [ -n "${SYSTEMROOT:-}" ]; then envv+=("SYSTEMROOT=$SYSTEMROOT"); fi
   if [ -n "${WINDIR:-}" ]; then envv+=("WINDIR=$WINDIR"); fi
+  # Installed toolchains (rustup and the like find theirs through HOME by default) stay
+  # reachable: a repro that runs cargo must not fail for want of a default toolchain.
+  while IFS= read -r v; do
+    if [ -n "$v" ]; then envv+=("$v"); fi
+  done <<EOF
+$(sf_toolchain_env)
+EOF
+  # A fresh CARGO_HOME, in native form: on Windows cargo would otherwise use the one in the
+  # user profile, which can hold registry tokens.
+  v=$(sf_native_path "$d/home/.cargo") || sf_die "cannot name a fresh CARGO_HOME under $d"
+  envv+=("CARGO_HOME=$v")
   # A tree it can't be started in: the repro could not run (126), which must never read as
   # the exit 1 of a repro that failed (at base, "it reproduces").
   (

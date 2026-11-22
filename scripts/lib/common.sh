@@ -189,6 +189,37 @@ sf_run_timeout() {
 # post-index-change and reference-transaction, which --no-verify does not. So is signing.
 sf_git_bk() { git -c core.hooksPath=/dev/null -c core.fsmonitor= -c commit.gpgsign=false "$@"; }
 
+# SF_TOOLCHAIN_HOMES: "<variable> <directory under HOME>" for toolchain managers whose files
+# live under HOME by default. Their proxies and shims stop working under the fresh, empty
+# HOME that demonstration runs get (rustup: "could not choose a version of cargo to run").
+SF_TOOLCHAIN_HOMES='RUSTUP_HOME .rustup
+PYENV_ROOT .pyenv
+RBENV_ROOT .rbenv
+ASDF_DATA_DIR .asdf
+VOLTA_HOME .volta'
+
+# sf_toolchain_env: prints NAME=VALUE lines, one for each SF_TOOLCHAIN_HOMES entry that project
+# code run under a fresh HOME should still reach: the variable's own value when it is set,
+# else HOME/<dir> (native form) when that is a directory. Call it before HOME is replaced.
+# These hold installed toolchains, not logins. asdf's global versions are not handed on: they
+# live in HOME/.tool-versions, so asdf resolves only through the tree's own .tool-versions or
+# ASDF_<TOOL>_VERSION. CARGO_HOME, which can hold registry tokens, is not one of them: the
+# callers give each run a fresh one. A value holding a line break is skipped.
+sf_toolchain_env() {
+  local var sub val
+  while read -r var sub; do
+    [ -n "$var" ] || continue
+    val=${!var:-}
+    if [ -z "$val" ] && [ -n "${HOME:-}" ] && [ -d "$HOME/$sub" ]; then
+      val=$(sf_native_path "$HOME/$sub") || continue
+    fi
+    case "$val" in '' | *$'\n'* | *$'\r'*) continue ;; esac
+    printf '%s=%s\n' "$var" "$val"
+  done <<EOF
+$SF_TOOLCHAIN_HOMES
+EOF
+}
+
 # sf_credential_names: names of exported environment entries that look like credentials, one
 # per line. `env` also lists entries whose names are not shell identifiers (for example
 # npm_config_//registry.example/:_authToken), which bash can neither list nor unset but

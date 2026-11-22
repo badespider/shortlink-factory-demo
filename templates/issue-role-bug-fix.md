@@ -8,7 +8,8 @@
 <!-- One self-contained shell command, run from the repository root, that exits non-zero
      while the bug exists and exits 0 once it is fixed. scripts/verify-fix.sh runs this
      block from the issue's ORIGINAL text, so edits made after filing are ignored.
-     It runs with a clean environment: no tokens, a fresh HOME and TMPDIR. -->
+     It runs with a clean environment: no tokens, a fresh HOME and TMPDIR and an empty
+     CARGO_HOME (installed toolchains stay reachable; cargo downloads, so no --offline). -->
 
 ```sh
 command that fails while the bug exists
