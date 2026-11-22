@@ -3,7 +3,17 @@ use std::process::ExitCode;
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let var = std::env::var("SHORTLINK_ADDR").ok();
+    // Only an unset variable means the default; a value that is not valid
+    // Unicode is a bad address, not a missing one (D-addr, issue #13).
+    let var = match std::env::var("SHORTLINK_ADDR") {
+        Ok(v) => Some(v),
+        Err(std::env::VarError::NotPresent) => None,
+        Err(std::env::VarError::NotUnicode(raw)) => {
+            return fail(&format!(
+                "invalid SHORTLINK_ADDR {raw:?}: not valid Unicode"
+            ))
+        }
+    };
     let addr = match shortlink::listen_addr(var.as_deref()) {
         Ok(a) => a,
         Err(e) => return fail(&e),
