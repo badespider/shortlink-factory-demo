@@ -42,7 +42,11 @@ fn issue_13_not_unicode_addr_exits_1_naming_the_variable() {
     });
     let mut stderr = String::new();
     std::io::Read::read_to_string(&mut child.stderr.take().unwrap(), &mut stderr).unwrap();
-    assert_eq!(status.code(), Some(1), "issue-13: exit status, stderr [{stderr}]");
+    assert_eq!(
+        status.code(),
+        Some(1),
+        "issue-13: exit status, stderr [{stderr}]"
+    );
     let lines: Vec<&str> = stderr.lines().collect();
     assert_eq!(lines.len(), 1, "issue-13: stderr has {} lines", lines.len());
     assert!(
