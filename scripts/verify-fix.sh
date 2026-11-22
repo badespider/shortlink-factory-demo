@@ -91,8 +91,11 @@ The repro is the first fenced block (```sh, ```bash, ```shell, bare ``` or ~~~) 
 section under a "### Repro" heading, plus an optional "expect: <substring>" line in that
 section. It runs as a file (bash <file>) twice at base and twice at head, each time in a
 fresh detached worktree after project.setup (run without credential-like variables), with
-a clean environment (env -i: PATH, a fresh HOME and TMPDIR, SYSTEMROOT/WINDIR when set, the
-installed toolchain roots of sf_toolchain_env such as RUSTUP_HOME, a fresh CARGO_HOME; no tokens) and a timeout of limits.repro_timeout_seconds. Every base run is judged before any
+a clean environment (env -i: PATH, a fresh HOME and TMPDIR, SYSTEMROOT/WINDIR when set, on
+Windows TMP and TEMP naming that same TMPDIR and ProgramData when set (where rustc finds
+MSVC), the installed toolchain roots of sf_toolchain_env such as RUSTUP_HOME, a fresh
+CARGO_HOME, no git credential helper for git itself, Git Credential Manager with no store,
+only its generic provider and no Windows sign-in, and no https prompts; no tokens) and a timeout of limits.repro_timeout_seconds. Every base run is judged before any
 head code runs.
 
 Verified when both base runs fail (with output containing expect, when given), both
@@ -796,8 +799,10 @@ vf_drop() {
 
 # vf_run TAG NAME K: run entry K's repro once in the NAME worktree; returns its exit status
 # (124 = timed out). The repro is a file, written from memory for every run, and runs
-# under env -i with only PATH (plus SYSTEMROOT/WINDIR when set, and the toolchain roots
-# of sf_toolchain_env) and a fresh HOME and TMPDIR, so no token or credential of this
+# under env -i with only PATH (plus SYSTEMROOT/WINDIR when set, on Windows TMP/TEMP and
+# ProgramData, and the toolchain roots of sf_toolchain_env), a fresh HOME and TMPDIR, and
+# git settings that keep stored https logins off its default path and turn https prompts
+# off, so no token or credential of this
 # process can reach it. Output: $VF_WORK/run-TAG/out. The run directory must be new: nothing
 # may sit in HOME or TMPDIR.
 vf_run() {
@@ -808,6 +813,34 @@ vf_run() {
   envv=("PATH=$PATH" "HOME=$d/home" "TMPDIR=$d/tmp")
   if [ -n "${SYSTEMROOT:-}" ]; then envv+=("SYSTEMROOT=$SYSTEMROOT"); fi
   if [ -n "${WINDIR:-}" ]; then envv+=("WINDIR=$WINDIR"); fi
+  # On Windows, native programs read TMP and TEMP, not TMPDIR: without them MSVC's linker
+  # falls back to the Windows directory and cannot write there (LNK1104), so they name the
+  # same fresh directory, natively. ProgramData holds Visual Studio's install records:
+  # without it rustc cannot find MSVC's link.exe and runs the first link on PATH, which under
+  # Git for Windows is coreutils' link. It names a system folder, never a credential. Either
+  # spelling counts: Windows names are case-insensitive, and a parent such as Python hands
+  # it on as PROGRAMDATA, which bash sees as a different variable.
+  if [ -n "${SYSTEMROOT:-}" ]; then
+    v=$(sf_native_path "$d/tmp") || sf_die "cannot name the fresh TMPDIR $d/tmp natively"
+    envv+=("TMP=$v" "TEMP=$v")
+    v=${ProgramData:-${PROGRAMDATA:-}}
+    if [ -n "$v" ]; then envv+=("ProgramData=$v"); fi
+  fi
+  # Stored https logins stay off the repro's default path, and https prompts are off. Git
+  # Credential Manager, the helper Git for Windows' system config names (it starts once TMP
+  # exists), uses no stored or ambient login with GCM_CREDENTIAL_STORE=none,
+  # GCM_PROVIDER=generic (the Azure Repos provider could otherwise take a token from the
+  # MSAL cache) and GCM_ALLOW_WINDOWSAUTH=false (else, for a server that offers NTLM or
+  # Negotiate, it answers with an empty login so git signs in as the Windows user), whoever
+  # starts it: git, a factory script (common.sh resets git's GIT_CONFIG_* list but not
+  # these, and sf_credential_names keeps a store of none) or libgit2 (cargo), which ignores
+  # that list. For git itself, an empty credential.helper at command scope, read last, also
+  # empties the helpers system and repository config name. Not isolation (ssh keys and ssh
+  # prompts, other helpers reached through libgit2 or a factory script, same-user code):
+  # that is the workflows' job, docs/CONTRACTS.md.
+  envv+=("GIT_TERMINAL_PROMPT=0" "GCM_INTERACTIVE=never" "GCM_CREDENTIAL_STORE=none"
+    "GCM_PROVIDER=generic" "GCM_ALLOW_WINDOWSAUTH=false"
+    "GIT_CONFIG_COUNT=1" "GIT_CONFIG_KEY_0=credential.helper" "GIT_CONFIG_VALUE_0=")
   # Installed toolchains (rustup and the like find theirs through HOME by default) stay
   # reachable: a repro that runs cargo must not fail for want of a default toolchain.
   while IFS= read -r v; do
