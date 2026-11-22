@@ -178,7 +178,7 @@
         "`shortlink::listen_addr(Some(\"not an addr\"))` returns `Err` with a non-empty message",
         "Running the built binary (`env!(\"CARGO_BIN_EXE_shortlink\")` from an integration test) with `SHORTLINK_ADDR=not-an-addr` exits with status 1 and prints exactly one non-empty line on stderr"
       ],
-      "status": "todo",
+      "status": "in_progress",
       "pr": null,
       "context": {
         "business": "G-6, FL-6: an operator starts the service where they need it.",
