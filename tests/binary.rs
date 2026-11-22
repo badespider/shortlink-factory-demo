@@ -5,8 +5,7 @@ use std::process::Command;
 #[test]
 fn f6_ac4_bad_addr_exits_1_with_one_stderr_line() {
     // F6-ac4
-    let bin = option_env!("CARGO_BIN_EXE_shortlink")
-        .expect("F6-ac4: the shortlink binary target is missing");
+    let bin = env!("CARGO_BIN_EXE_shortlink");
     let out = Command::new(bin)
         .env("SHORTLINK_ADDR", "not-an-addr")
         .output()
