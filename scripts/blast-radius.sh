@@ -26,7 +26,9 @@ affected tests and the classes that need operator approval (needs_approval).
   --run-tests      run gate.test_files on the affected tests (gate.test when it is none),
                    in the tree as checked out, after the report and the --fail-on classes
                    are decided; without credential-like environment variables, and with a
-                   new, empty HOME, TMPDIR, XDG_CONFIG_HOME and GH_CONFIG_DIR
+                   new, empty HOME, TMPDIR, XDG_CONFIG_HOME and GH_CONFIG_DIR (installed
+                   toolchains such as rustup's stay reachable: sf_toolchain_env) and a
+                   fresh CARGO_HOME
   --json           print one JSON document instead of the text report
   --fail-on CLASS  exit 1 when CLASS is present; repeatable. CLASS is rules-change,
                    protected, test-removed or out-of-scope (needs --feature)
@@ -488,7 +490,7 @@ br_fill_files() {
 # text report and to stderr with --json. Returns 1 when the tests fail.
 br_run_tests() {
   local json=$1 tf t cmd files="" p q started rc=0 line d names n
-  local -a drop=()
+  local -a drop=() tc=()
   tf=$(sf_cfg gate.test_files none)
   t=$(sf_cfg gate.test none)
   if sf_is_none "$tf" && sf_is_none "$t"; then
@@ -520,16 +522,26 @@ br_run_tests() {
     done <<EOF
 $names
 EOF
+    # Installed toolchains stay reachable under the fresh HOME below (sf_toolchain_env: rustup
+    # and the like find theirs through HOME by default, and would fail with no default).
+    while IFS= read -r n; do
+      if [ -n "$n" ]; then tc+=("$n"); fi
+    done <<EOF
+$(sf_toolchain_env)
+EOF
     # And a new, empty HOME, TMPDIR, XDG_CONFIG_HOME and GH_CONFIG_DIR, removed after them, so
     # the runner's own config, gh login and caches stay out of their reach.
     if ! { d=$(mktemp -d "$BR_WORK/run.XXXXXX") && mkdir "$d/home" "$d/tmp" "$d/config" "$d/gh"; }; then
       sf_die "could not make a fresh HOME and TMPDIR for the tests"
     fi
+    # A fresh CARGO_HOME too, in native form: an exported one (or, on Windows, cargo's default
+    # in the user profile) can hold registry tokens.
+    tc+=("CARGO_HOME=$(sf_native_path "$d/home/.cargo")") || sf_die "could not name a fresh CARGO_HOME"
     sf_log "run-tests: $cmd"
     started=$(date +%s)
     # env (in sf_scrubbed) looks its command up in PATH: env and bash run by their pinned paths.
     (cd "$BR_TREE" && sf_scrubbed "$BR_ENV" ${drop[@]+"${drop[@]}"} HOME="$d/home" TMPDIR="$d/tmp" \
-      XDG_CONFIG_HOME="$d/config" GH_CONFIG_DIR="$d/gh" "$BR_BASH" -c "$cmd") </dev/null 1>&2 || rc=$?
+      XDG_CONFIG_HOME="$d/config" GH_CONFIG_DIR="$d/gh" ${tc[@]+"${tc[@]}"} "$BR_BASH" -c "$cmd") </dev/null 1>&2 || rc=$?
     rm -rf "$d" 2>/dev/null || true
     # 125: sf_scrubbed refused to start the tests (it could not list the credential names).
     # They never ran, so this is "could not decide", never a failing test. A test command that

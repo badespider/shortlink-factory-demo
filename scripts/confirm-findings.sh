@@ -32,7 +32,8 @@ it only when both runs exit non-zero and, when "expect" is given, both outputs c
 it. Input: one JSON object per line,
   {"id":"V1","claim":"...","command":"...","expect":"optional substring"}
 Every run gets no credential-like environment variables, and its own new, empty HOME,
-TMPDIR, XDG_CONFIG_HOME and GH_CONFIG_DIR, removed after it.
+TMPDIR, XDG_CONFIG_HOME and GH_CONFIG_DIR, removed after it (installed toolchains such as
+rustup's stay reachable: sf_toolchain_env), and a fresh CARGO_HOME.
 Malformed lines are reported and skipped, never run. A finding whose runs exit 125/126/127
 without a matching "expect" is inconclusive; for such a run, the shell's own launch errors
 ("bash: line 1: x: command not found", "No such file or directory", "Permission denied")
@@ -236,6 +237,15 @@ done <<EOF
 $CF_NAMES
 EOF
 
+# Installed toolchains stay reachable under each run's fresh HOME (sf_toolchain_env: rustup
+# and the like find theirs through HOME by default). Read now, from the real HOME.
+CF_TC=()
+while IFS= read -r cf_name; do
+  if [ -n "$cf_name" ]; then CF_TC+=("$cf_name"); fi
+done <<EOF
+$(sf_toolchain_env)
+EOF
+
 # cf_exec_scrubbed CMD...: replace this shell with CMD, started through sf_scrubbed. It runs
 # only as the job sf_run_timeout starts in the background, and sf_run_timeout signals that
 # job's own process; sf_scrubbed would start env as a child of it, out of the timeout's
@@ -258,7 +268,7 @@ cf_exec_scrubbed() {
 # "--" keeps a command that starts with - or + from being parsed as bash options. N is
 # unique per run: a process a command leaves behind keeps writing to its own file only.
 cf_run() {
-  local st=0 d=""
+  local st=0 d="" cargo_home
   # An earlier command can move the tree away. The run would then exit 1 without running
   # COMMAND at all, which must not read as "it failed".
   if ! (cd "$tree") 2>/dev/null; then
@@ -273,10 +283,18 @@ cf_run() {
     CF_UNPREPARED="could not make a fresh HOME and TMPDIR to run it in"
     return 0
   fi
+  # A fresh CARGO_HOME too, in native form: an exported one (or, on Windows, cargo's default
+  # in the user profile) can hold registry tokens.
+  if ! cargo_home=$(sf_native_path "$d/home/.cargo"); then
+    rm -rf "$d" 2>/dev/null || true
+    CF_UNPREPARED="could not name a fresh CARGO_HOME to run it with"
+    return 0
+  fi
   (
     cd "$tree" || exit 1
     sf_run_timeout "$CF_TIMEOUT" cf_exec_scrubbed HOME="$d/home" TMPDIR="$d/tmp" \
-      XDG_CONFIG_HOME="$d/config" GH_CONFIG_DIR="$d/gh" "$CF_BASH" -c -- "$2"
+      XDG_CONFIG_HOME="$d/config" GH_CONFIG_DIR="$d/gh" ${CF_TC[@]+"${CF_TC[@]}"} \
+      CARGO_HOME="$cargo_home" "$CF_BASH" -c -- "$2"
   ) </dev/null >"$CF_WORK/out.$1" 2>&1 || st=$?
   rm -rf "$d" 2>/dev/null || true
   return "$st"

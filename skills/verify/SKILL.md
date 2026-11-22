@@ -52,11 +52,12 @@ If the operator note names `deadline <epoch>` (`for ship: deadline <epoch>` from
 4. **Write each candidate as a command file, and try it once.** Rules for every command:
    - It checks the correct behaviour: exit 0 when the code is right, non-zero with evidence when it is wrong. A confirmed finding is then a ready repro for a bug issue.
    - On failure it prints a distinctive line, and that line goes in `expect` (e.g. `BUG: empty title accepted`).
-   - Its first line points every home and config directory at a fresh one, so the code under review never sees your files or your gh login. After that it stands alone: run from the repository root with `bash -c`, twice, 120 s timeout each, with no credentials, no network, and no `gh` or `git push`. Scratch goes in `$(mktemp -d)`; tracked files are never written.
+   - Its first line points every home and config directory at a fresh one, so the code under review never sees your files or your gh login. After that it stands alone: run from the repository root with `bash -c`, twice, 120 s timeout each, with no credentials, no network (except a build tool fetching the tree's locked dependencies: each judged run starts with empty caches, a fresh `CARGO_HOME` among them, so never pass `--offline` or `--frozen`), and no `gh` or `git push`. Scratch goes in `$(mktemp -d)`; tracked files are never written.
    - Both runs must agree. Use exit 126 or 127 only when the code under review itself lacks a command: a mistyped command is inconclusive and keeps the PR blocked.
    ```sh
    cat >"$T/V1.cmd" <<'EOF'
    export HOME="$(mktemp -d)" TMPDIR="$(mktemp -d)" XDG_CONFIG_HOME="$(mktemp -d)" GH_CONFIG_DIR="$(mktemp -d)"
+   export CARGO_HOME="$HOME/.cargo"   # as the judged runs; a line of its own, so $HOME is the new one
    out=$(node bin/notes.js add "" 2>&1); rc=$?
    [ "$rc" -ne 0 ] || { echo "BUG: empty title accepted: $out"; exit 1; }
    EOF
