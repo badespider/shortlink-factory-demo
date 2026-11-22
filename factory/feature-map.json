@@ -178,12 +178,15 @@
         "`shortlink::listen_addr(Some(\"not an addr\"))` returns `Err` with a non-empty message",
         "Running the built binary (`env!(\"CARGO_BIN_EXE_shortlink\")` from an integration test) with `SHORTLINK_ADDR=not-an-addr` exits with status 1 and prints exactly one non-empty line on stderr"
       ],
-      "status": "in_progress",
+      "status": "done",
       "pr": "https://github.com/badespider/shortlink-factory-demo/pull/11",
       "context": {
         "business": "G-6, FL-6: an operator starts the service where they need it.",
         "design": "`pub fn listen_addr(var: Option<&str>) -> Result<SocketAddr, String>` in `src/lib.rs` per D-addr; `src/main.rs` holds only startup per D-router-fn and D-modules: read `SHORTLINK_ADDR`, call `listen_addr`, bind a `tokio::net::TcpListener`, run `axum::serve(listener, shortlink::app())`, and on an address or bind error print one line to stderr and exit 1. Tests call `listen_addr` directly; the last criterion runs the binary only on an address that fails to parse, so no socket is opened, per D-tests.",
-        "code_refs": []
+        "code_refs": [
+          "src/main.rs",
+          "src/lib.rs"
+        ]
       },
       "files": [
         "src/main.rs",
